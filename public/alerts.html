@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Emergency Alerts - Steam Room Monitoring System</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <style>
+    .emergency-list {
+      margin-top: 20px;
+    }
+    
+    .emergency-card {
+      background-color: #fff;
+      border-radius: 6px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      padding: 15px;
+      margin-bottom: 15px;
+      border-left: 4px solid #dc3545;
+    }
+    
+    .emergency-card.resolved {
+      border-left-color: #28a745;
+    }
+    
+    .emergency-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    
+    .emergency-time {
+      color: #6c757d;
+      font-size: 0.9rem;
+    }
+    
+    .emergency-status {
+      font-size: 0.8rem;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-weight: 500;
+    }
+    
+    .status-active {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+    
+    .status-resolved {
+      background-color: #d4edda;
+      color: #155724;
+    }
+    
+    .emergency-temp {
+      font-size: 1.5rem;
+      font-weight: 500;
+      margin: 10px 0;
+    }
+    
+    .filter-controls {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Steam Room Monitoring System</h1>
+  </header>
+  
+  <nav>
+    <ul>
+      <li><a href="/">Dashboard</a></li>
+      <li><a href="/analytics">Analytics</a></li>
+      <li><a href="/alerts" class="active">Emergency Alerts</a></li>
+    </ul>
+  </nav>
+  
+  <div class="container">
+    <!-- Active Emergency Alert -->
+    <div id="emergency-alert" class="emergency-container">
+      <h2 class="emergency-title">⚠️ ACTIVE EMERGENCY ⚠️</h2>
+      <p class="emergency-message" id="emergency-message">Temperature exceeds emergency threshold!</p>
+      <div class="emergency-temp" id="emergency-temp">--°C</div>
+      <button id="resolve-emergency" class="btn btn-success">Resolve Emergency</button>
+    </div>
+    
+    <div class="content">
+      <h2>Emergency Alerts History</h2>
+      
+      <!-- Filter Controls -->
+      <div class="filter-controls">
+        <button id="show-all" class="btn btn-primary">All Alerts</button>
+        <button id="show-active" class="btn">Active Only</button>
+        <button id="show-resolved" class="btn">Resolved Only</button>
+      </div>
+      
+      <!-- Alerts List -->
+      <div class="emergency-list" id="alerts-list">
+        <p>Loading alerts...</p>
+      </div>
+    </div>
+  </div>
+  
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+  <script>
+    // Initialize socket connection
+    const socket = io();
+    
+    // DOM elements
+    const emergencyContainer = document.getElementById('emergency-alert');
+    const emergencyTemp = document.getElementById('emergency-temp');
+    const emergencyMsg = document.getElementById('emergency-message');
+    const resolveBtn = document.getElementById('resolve-emergency');
+    const alertsList = document.getElementById('alerts-list');
+    const showAllBtn = document.getElementById('show-all');
+    const showActiveBtn = document.getElementById('show-active');
+    const showResolvedBtn = document.getElementById('show-resolved');
+    
+    // Active filter
+    let currentFilter = 'all';
+    
+    // Format date for display
+    function formatDate(date) {
+      return new Date(date).toLocaleString();
+    }
+    
+    // Show emergency alert
+    function showEmergencyAlert(alert) {
+      emergencyContainer.classList.add('active');
+      emergencyTemp.textContent = `${alert.temperature.toFixed(1)}°C`;
+      emergencyMsg.textContent = alert.message || `Temperature exceeds emergency threshold!`;
+      
+      // Play alarm sound
+      playAlarmSound();
+      
+      // Setup resolve button
+      resolveBtn.onclick = () => resolveEmergency(alert._id);
+    }
+    
+    // Play alarm sound
+    function playAlarmSound() {
+      const alarmSound = new Audio('/audio/alarm.mp3');
+      alarmSound.loop = true;
+      alarmSound.play().catch(error => {
+        console.error('Error playing alarm sound:', error);
+      });
+      
+      // Store the audio element for later stopping
+      window.currentAlarm = alarmSound;
+    }
+    
+    // Stop alarm sound
+    function stopAlarmSound() {
+      if (window.currentAlarm) {
+        window.currentAlarm.pause();
+        window.currentAlarm.currentTime = 0;
+        window.currentAlarm = null;
+      }
+    }
+    
+    // Resolve emergency
+    function resolveEmergency(emergencyId) {
+      fetch(`/api/emergencies/${emergencyId}/resolve`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+      .then(response => response.json())
+      .then(data => {
+        emergencyContainer.classList.remove('active');
+        stopAlarmSound();
+        fetchAlerts(currentFilter);
+      })
+      .catch(error => {
+        console.error('Error resolving emergency:', error);
+      });
+    }
+    
+    // Fetch alerts based on filter
+    function fetchAlerts(filter = 'all') {
+      let url;
+      
+      if (filter === 'active') {
+        url = '/api/emergencies?resolved=false';
+      } else if (filter === 'resolved') {
+        url = '/api/emergencies?resolved=true';
+      } else {
+        url = '/api/emergencies';
+      }
+      
+      fetch(url)
+        .then(response => response.json())
+        .then(data => {
+          renderAlerts(data.data || []);
+          
+          // Check if there's an active emergency
+          const activeEmergency = data.data && data.data.find(alert => !alert.resolved);
+          if (activeEmergency) {
+            showEmergencyAlert(activeEmergency);
+          } else {
+            emergencyContainer.classList.remove('active');
+            stopAlarmSound();
+          }
+        })
+        .catch(error => {
+          console.error('Error fetching alerts:', error);
+          alertsList.innerHTML = '<p>Error loading alerts. Please try again.</p>';
+        });
+    }
+    
+    // Render alerts list
+    function renderAlerts(alerts) {
+      if (!alerts || alerts.length === 0) {
+        alertsList.innerHTML = '<p>No alerts found.</p>';
+        return;
+      }
+      
+      alertsList.innerHTML = '';
+      
+      alerts.forEach(alert => {
+        const card = document.createElement('div');
+        card.className = `emergency-card ${alert.resolved ? 'resolved' : ''}`;
+        
+        const header = document.createElement('div');
+        header.className = 'emergency-header';
+        
+        const time = document.createElement('div');
+        time.className = 'emergency-time';
+        time.textContent = formatDate(alert.createdAt);
+        
+        const status = document.createElement('div');
+        status.className = `emergency-status ${alert.resolved ? 'status-resolved' : 'status-active'}`;
+        status.textContent = alert.resolved ? 'Resolved' : 'Active';
+        
+        header.appendChild(time);
+        header.appendChild(status);
+        
+        const message = document.createElement('div');
+        message.textContent = alert.message;
+        
+        const temp = document.createElement('div');
+        temp.className = 'emergency-temp';
+        temp.textContent = `${alert.temperature.toFixed(1)}°C`;
+        
+        const footer = document.createElement('div');
+        if (!alert.resolved) {
+          const resolveButton = document.createElement('button');
+          resolveButton.className = 'btn btn-success';
+          resolveButton.textContent = 'Resolve';
+          resolveButton.onclick = () => resolveEmergency(alert._id);
+          footer.appendChild(resolveButton);
+        } else {
+          const resolvedTime = document.createElement('div');
+          resolvedTime.className = 'emergency-time';
+          resolvedTime.textContent = `Resolved at: ${alert.resolvedAt ? formatDate(alert.resolvedAt) : 'Unknown'}`;
+          footer.appendChild(resolvedTime);
+        }
+        
+        card.appendChild(header);
+        card.appendChild(message);
+        card.appendChild(temp);
+        card.appendChild(footer);
+        
+        alertsList.appendChild(card);
+      });
+    }
+    
+    // Set filter buttons
+    function setFilterButtons(filter) {
+      showAllBtn.className = filter === 'all' ? 'btn btn-primary' : 'btn';
+      showActiveBtn.className = filter === 'active' ? 'btn btn-primary' : 'btn';
+      showResolvedBtn.className = filter === 'resolved' ? 'btn btn-primary' : 'btn';
+      
+      currentFilter = filter;
+    }
+    
+    // Socket.io event handlers
+    socket.on('emergency-alert', (alert) => {
+      if (currentFilter !== 'resolved') {
+        fetchAlerts(currentFilter);
+      }
+      showEmergencyAlert(alert);
+    });
+    
+    socket.on('emergency-resolved', () => {
+      fetchAlerts(currentFilter);
+      emergencyContainer.classList.remove('active');
+      stopAlarmSound();
+    });
+    
+    socket.on('active-emergencies', (alerts) => {
+      if (alerts && alerts.length > 0) {
+        showEmergencyAlert(alerts[0]);
+      }
+    });
+    
+    // Add event listeners
+    showAllBtn.addEventListener('click', () => {
+      setFilterButtons('all');
+      fetchAlerts('all');
+    });
+    
+    showActiveBtn.addEventListener('click', () => {
+      setFilterButtons('active');
+      fetchAlerts('active');
+    });
+    
+    showResolvedBtn.addEventListener('click', () => {
+      setFilterButtons('resolved');
+      fetchAlerts('resolved');
+    });
+    
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', () => {
+      setFilterButtons('all');
+      fetchAlerts('all');
+    });
+  </script>
+</body>
+</html> 

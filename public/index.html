@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Steam Room Monitoring System</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <header>
+    <h1>Steam Room Monitoring System</h1>
+  </header>
+  
+  <nav>
+    <ul>
+      <li><a href="/" class="active">Dashboard</a></li>
+      <li><a href="/analytics">Analytics</a></li>
+      <li><a href="/alerts">Emergency Alerts</a></li>
+    </ul>
+  </nav>
+  
+  <div class="container">
+    <!-- Emergency Alert Container -->
+    <div id="emergency-alert" class="emergency-container">
+      <h2 class="emergency-title">⚠️ EMERGENCY ALERT ⚠️</h2>
+      <p class="emergency-message" id="emergency-message">Temperature exceeds emergency threshold!</p>
+      <div class="emergency-temp" id="emergency-temp">--°C</div>
+      <button id="resolve-emergency" class="btn btn-success">Resolve Emergency</button>
+    </div>
+    
+    <div class="dashboard-grid">
+      <!-- Current Temperature Panel -->
+      <div class="panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Current Temperature</h2>
+        </div>
+        <div class="panel-body">
+          <div class="temperature-display">
+            <span id="temperature-value">--.-</span>
+            <span class="temperature-unit">°C</span>
+          </div>
+          <p class="temperature-info">Last updated: <span id="last-update">--</span></p>
+        </div>
+      </div>
+      
+      <!-- Current Humidity Panel -->
+      <div class="panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Current Humidity</h2>
+        </div>
+        <div class="panel-body">
+          <div class="humidity-display" id="humidity-value">--%</div>
+          <p class="temperature-info">Relative humidity in steam room</p>
+        </div>
+      </div>
+      
+      <!-- System Status Panel -->
+      <div class="panel">
+        <div class="panel-header">
+          <h2 class="panel-title">System Status</h2>
+        </div>
+        <div class="panel-body">
+          <div class="alert alert-success">
+            <span>Monitoring active</span>
+          </div>
+          <div class="alert alert-info">
+            <span>Sensor reading every 5 minutes</span>
+          </div>
+          <div class="alert alert-info">
+            <span>MQTT update every 10 minutes</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Temperature Chart -->
+    <div class="content">
+      <h2>Temperature History</h2>
+      <div class="chart-container">
+        <canvas id="temperature-chart"></canvas>
+      </div>
+    </div>
+    
+    <!-- Humidity Chart -->
+    <div class="content">
+      <h2>Humidity History</h2>
+      <div class="chart-container">
+        <canvas id="humidity-chart"></canvas>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Scripts -->
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="/js/dashboard.js"></script>
+</body>
+</html> 

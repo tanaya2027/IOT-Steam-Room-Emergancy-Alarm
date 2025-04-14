@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Analytics - Steam Room Monitoring System</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <header>
+    <h1>Steam Room Monitoring System</h1>
+  </header>
+  
+  <nav>
+    <ul>
+      <li><a href="/">Dashboard</a></li>
+      <li><a href="/analytics" class="active">Analytics</a></li>
+      <li><a href="/alerts">Emergency Alerts</a></li>
+    </ul>
+  </nav>
+  
+  <div class="container">
+    <div class="content">
+      <h2>Usage Analytics</h2>
+      
+      <!-- Date Range Selector -->
+      <form id="date-range-form">
+        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+          <div>
+            <label for="start-date">Start Date:</label>
+            <input type="date" id="start-date" required>
+          </div>
+          <div>
+            <label for="end-date">End Date:</label>
+            <input type="date" id="end-date" required>
+          </div>
+          <button type="submit" class="btn btn-primary">Apply</button>
+        </div>
+      </form>
+      
+      <!-- Summary Stats -->
+      <div class="session-stats">
+        <div class="stat-card">
+          <div class="stat-value" id="total-users">--</div>
+          <div class="stat-label">Total Users</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="avg-users">--</div>
+          <div class="stat-label">Avg Users/Day</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="avg-max-temp">--°C</div>
+          <div class="stat-label">Avg Max Temp</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="avg-session-time">--:--</div>
+          <div class="stat-label">Avg Session Time</div>
+        </div>
+      </div>
+      
+      <!-- Charts -->
+      <h3>Daily Usage</h3>
+      <div class="chart-container">
+        <canvas id="daily-users-chart"></canvas>
+      </div>
+      
+      <h3>Average Temperature</h3>
+      <div class="chart-container">
+        <canvas id="avg-temperature-chart"></canvas>
+      </div>
+      
+      <h3>Average Session Duration</h3>
+      <div class="chart-container">
+        <canvas id="avg-duration-chart"></canvas>
+      </div>
+    </div>
+    
+    <!-- Sessions Table -->
+    <div class="content">
+      <h2>Session History</h2>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Date & Time</th>
+            <th>Duration</th>
+            <th>Max Temperature</th>
+            <th>Device ID</th>
+          </tr>
+        </thead>
+        <tbody id="sessions-table-body">
+          <tr>
+            <td colspan="4">Loading session data...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  
+  <!-- Scripts -->
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="/js/analytics.js"></script>
+</body>
+</html> 
