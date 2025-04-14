@@ -1,104 +1,339 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Analytics - Steam Room Monitoring System</title>
-  <link rel="stylesheet" href="/css/styles.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Steam Room Analytics</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link rel="stylesheet" href="css/styles.css">
+    <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Analytics page specific styles */
+        .update-indicator {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(17, 24, 39, 0.8);
+            padding: 6px 12px;
+            border-radius: 16px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.9);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            z-index: 10;
+        }
+        
+        .update-indicator .dot {
+            width: 6px;
+            height: 6px;
+            background: #10b981;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        
+        .update-indicator .text {
+            font-weight: 500;
+        }
+        
+        .time-range-btn {
+            padding: 6px 12px;
+            font-size: 0.9rem;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            background: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .time-range-btn:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+        
+        .time-range-btn.active {
+            background-color: var(--accent-color);
+            color: white;
+            border-color: var(--accent-color);
+        }
+        
+        .stats-card {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: var(--box-shadow);
+            transition: transform 0.3s ease;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .stats-card:hover {
+            transform: translateY(-3px);
+            box-shadow: var(--box-shadow-lg);
+        }
+        
+        .stats-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .stats-title {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+        
+        .stats-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+        
+        .temp-icon {
+            background-color: rgba(255, 107, 107, 0.1);
+            color: var(--temp-color);
+        }
+        
+        .humidity-icon {
+            background-color: rgba(78, 205, 196, 0.1);
+            color: var(--humidity-color);
+        }
+        
+        .alerts-icon {
+            background-color: rgba(255, 217, 61, 0.1);
+            color: var(--system-color);
+        }
+        
+        .uptime-icon {
+            background-color: rgba(59, 130, 246, 0.1);
+            color: var(--accent-color);
+        }
+        
+        .stats-value {
+            font-size: 28px;
+            font-weight: 700;
+            margin: 10px 0;
+        }
+        
+        .stats-trend {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+        }
+        
+        .trend-up {
+            color: var(--status-success);
+        }
+        
+        .trend-down {
+            color: var(--status-danger);
+        }
+        
+        .data-updates {
+            margin-top: auto;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .data-updates .dot {
+            width: 5px;
+            height: 5px;
+            background: var(--status-success);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% {
+                transform: scale(0.95);
+                opacity: 0.5;
+            }
+            50% {
+                transform: scale(1.05);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(0.95);
+                opacity: 0.5;
+            }
+        }
+    </style>
 </head>
 <body>
-  <header>
-    <h1>Steam Room Monitoring System</h1>
-  </header>
-  
-  <nav>
-    <ul>
-      <li><a href="/">Dashboard</a></li>
-      <li><a href="/analytics" class="active">Analytics</a></li>
-      <li><a href="/alerts">Emergency Alerts</a></li>
-    </ul>
-  </nav>
-  
-  <div class="container">
-    <div class="content">
-      <h2>Usage Analytics</h2>
-      
-      <!-- Date Range Selector -->
-      <form id="date-range-form">
-        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-          <div>
-            <label for="start-date">Start Date:</label>
-            <input type="date" id="start-date" required>
-          </div>
-          <div>
-            <label for="end-date">End Date:</label>
-            <input type="date" id="end-date" required>
-          </div>
-          <button type="submit" class="btn btn-primary">Apply</button>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="logo">
+                <i class="fas fa-temperature-high"></i>
+                <span>Steam Room</span>
+            </div>
+            <nav>
+                <a href="index.html" class="nav-item">
+                    <i class="fas fa-gauge-high"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="analytics.html" class="nav-item active">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Analytics</span>
+                </a>
+                <a href="alerts.html" class="nav-item">
+                    <i class="fas fa-bell"></i>
+                    <span>Alerts</span>
+                </a>
+                <a href="settings.html" class="nav-item">
+                    <i class="fas fa-gear"></i>
+                    <span>Settings</span>
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <a href="#" class="nav-item">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
+                </a>
+            </div>
         </div>
-      </form>
-      
-      <!-- Summary Stats -->
-      <div class="session-stats">
-        <div class="stat-card">
-          <div class="stat-value" id="total-users">--</div>
-          <div class="stat-label">Total Users</div>
+
+        <!-- Main content -->
+        <div class="main-content">
+            <div class="header">
+                <h1>Analytics Dashboard</h1>
+                <div class="user-info">
+                    <i class="fas fa-user-circle"></i>
+                    <span>Admin User</span>
+                </div>
+            </div>
+
+            <!-- Key metrics -->
+            <div class="stats-grid">
+                <div class="stats-card">
+                    <div class="stats-header">
+                        <div class="stats-title">AVERAGE TEMPERATURE</div>
+                        <div class="stats-icon temp-icon">
+                            <i class="fas fa-temperature-high"></i>
+                        </div>
+                    </div>
+                    <div class="stats-value" id="avgTemp">--°C</div>
+                    <div class="stats-trend">
+                        <i class="fas fa-arrow-trend-up"></i>
+                        <span id="tempTrend">--</span> from previous period
+                    </div>
+                    <div class="data-updates">
+                        <span class="dot"></span>
+                        Data updated every 3s
+                    </div>
+                </div>
+
+                <div class="stats-card">
+                    <div class="stats-header">
+                        <div class="stats-title">AVERAGE HUMIDITY</div>
+                        <div class="stats-icon humidity-icon">
+                            <i class="fas fa-droplet"></i>
+                        </div>
+                    </div>
+                    <div class="stats-value" id="avgHumidity">--%</div>
+                    <div class="stats-trend">
+                        <i class="fas fa-arrow-trend-up"></i>
+                        <span id="humidityTrend">--</span> from previous period
+                    </div>
+                    <div class="data-updates">
+                        <span class="dot"></span>
+                        Data updated every 3s
+                    </div>
+                </div>
+
+                <div class="stats-card">
+                    <div class="stats-header">
+                        <div class="stats-title">TOTAL ALERTS</div>
+                        <div class="stats-icon alerts-icon">
+                            <i class="fas fa-bell"></i>
+                        </div>
+                    </div>
+                    <div class="stats-value" id="totalAlerts">--</div>
+                    <div class="stats-trend">
+                        Alert threshold: 34.5°C
+                    </div>
+                    <div class="data-updates">
+                        <span class="dot"></span>
+                        Real-time monitoring
+                    </div>
+                </div>
+
+                <div class="stats-card">
+                    <div class="stats-header">
+                        <div class="stats-title">SYSTEM UPTIME</div>
+                        <div class="stats-icon uptime-icon">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                    </div>
+                    <div class="stats-value" id="uptime">--%</div>
+                    <div class="stats-trend">
+                        AWS IoT Connection Status: Active
+                    </div>
+                    <div class="data-updates">
+                        <span class="dot"></span>
+                        Continuous monitoring
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Grid -->
+            <div class="analytics-grid">
+                <!-- Temperature Chart -->
+                <div class="chart-container">
+                    <div class="chart-header">
+                        <div class="chart-title">Temperature History</div>
+                        <div class="chart-controls">
+                            <button class="time-range-btn active" data-range="20m">20m</button>
+                            <button class="time-range-btn" data-range="1h">1h</button>
+                            <button class="time-range-btn" data-range="6h">6h</button>
+                        </div>
+                    </div>
+                    <div class="chart-wrapper">
+                        <canvas id="temperatureChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Humidity Chart -->
+                <div class="chart-container">
+                    <div class="chart-header">
+                        <div class="chart-title">Humidity History</div>
+                        <div class="chart-controls">
+                            <button class="time-range-btn active" data-range="20m">20m</button>
+                            <button class="time-range-btn" data-range="1h">1h</button>
+                            <button class="time-range-btn" data-range="6h">6h</button>
+                        </div>
+                    </div>
+                    <div class="chart-wrapper">
+                        <canvas id="humidityChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Alert Distribution Chart -->
+                <div class="chart-container full-width">
+                    <div class="chart-header">
+                        <div class="chart-title">Alert Distribution</div>
+                    </div>
+                    <div class="chart-wrapper" style="height: 250px;">
+                        <canvas id="alertDistributionChart"></canvas>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="stat-card">
-          <div class="stat-value" id="avg-users">--</div>
-          <div class="stat-label">Avg Users/Day</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value" id="avg-max-temp">--°C</div>
-          <div class="stat-label">Avg Max Temp</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value" id="avg-session-time">--:--</div>
-          <div class="stat-label">Avg Session Time</div>
-        </div>
-      </div>
-      
-      <!-- Charts -->
-      <h3>Daily Usage</h3>
-      <div class="chart-container">
-        <canvas id="daily-users-chart"></canvas>
-      </div>
-      
-      <h3>Average Temperature</h3>
-      <div class="chart-container">
-        <canvas id="avg-temperature-chart"></canvas>
-      </div>
-      
-      <h3>Average Session Duration</h3>
-      <div class="chart-container">
-        <canvas id="avg-duration-chart"></canvas>
-      </div>
     </div>
-    
-    <!-- Sessions Table -->
-    <div class="content">
-      <h2>Session History</h2>
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Date & Time</th>
-            <th>Duration</th>
-            <th>Max Temperature</th>
-            <th>Device ID</th>
-          </tr>
-        </thead>
-        <tbody id="sessions-table-body">
-          <tr>
-            <td colspan="4">Loading session data...</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-  
-  <!-- Scripts -->
-  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="/js/analytics.js"></script>
+
+    <script src="js/analytics.js"></script>
 </body>
 </html> 

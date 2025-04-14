@@ -1,7 +1,5 @@
 // Initialize socket.io connection
-const socket = io('http://localhost:8000', {
-  withCredentials: true
-});
+const socket = io('http://localhost:8000');
 
 // DOM elements
 const tempDisplay = document.getElementById('temperature-value');

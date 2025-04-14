@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Steam Room Sound Management</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    .notice-container {
+      max-width: 600px;
+      margin: 100px auto;
+      background-color: var(--card-bg);
+      border-radius: 12px;
+      padding: 30px;
+      text-align: center;
+      box-shadow: var(--box-shadow);
+    }
+    
+    .notice-icon {
+      font-size: 64px;
+      color: var(--accent-color);
+      margin-bottom: 20px;
+    }
+    
+    .notice-title {
+      font-size: 24px;
+      margin-bottom: 20px;
+    }
+    
+    .notice-content {
+      line-height: 1.6;
+      margin-bottom: 30px;
+    }
+    
+    .back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 20px;
+      background-color: var(--accent-color);
+      color: white;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 500;
+      transition: all 0.2s ease;
+    }
+    
+    .back-btn:hover {
+      background-color: var(--accent-hover);
+    }
+  </style>
+</head>
+<body>
+  <div class="notice-container">
+    <div class="notice-icon">
+      <i class="fas fa-volume-high"></i>
+    </div>
+    <h1 class="notice-title">Custom Sound Upload Disabled</h1>
+    <div class="notice-content">
+      <p>Custom sound upload functionality has been disabled by the administrator.</p>
+      <p>The system is using the built-in alarm sounds for all alerts.</p>
+    </div>
+    <a href="alerts.html" class="back-btn">
+      <i class="fas fa-arrow-left"></i>
+      Return to Alerts
+    </a>
+  </div>
+</body>
+</html>

@@ -3,96 +3,1014 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Steam Room Monitoring System</title>
-  <link rel="stylesheet" href="/css/styles.css">
+  <title>Steam Room Monitor</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    .current-reading {
+      font-size: 3rem;
+      font-weight: 700;
+      margin: 20px 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .reading-unit {
+      font-size: 1.5rem;
+      color: var(--text-secondary);
+    }
+    
+    .reading-time {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      margin-top: 10px;
+    }
+    
+    .badge-status {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    .status-normal {
+      background-color: rgba(16, 185, 129, 0.1);
+      color: var(--status-success);
+    }
+    
+    .status-warning {
+      background-color: rgba(245, 158, 11, 0.1);
+      color: var(--status-warning);
+    }
+    
+    .status-critical {
+      background-color: rgba(239, 68, 68, 0.1);
+      color: var(--status-danger);
+      animation: pulse 1.5s infinite;
+    }
+    
+    .sensor-reading-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      margin-right: 10px;
+      background-color: rgba(255, 255, 255, 0.05);
+    }
+    
+    .mini-chart {
+      height: 50px;
+      margin-top: 15px;
+    }
+    
+    .reading-trend-small {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.9rem;
+      margin-top: 10px;
+    }
+    
+    .status-card {
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 12px;
+      background-color: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-color);
+    }
+    
+    .status-items {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    
+    .status-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 15px;
+      border-radius: 8px;
+      background-color: rgba(255, 255, 255, 0.03);
+    }
+    
+    .status-name {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 500;
+    }
+    
+    .status-indicator {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background-color: var(--status-success);
+    }
+    
+    .status-indicator.warning {
+      background-color: var(--status-warning);
+    }
+    
+    .status-indicator.offline {
+      background-color: var(--status-danger);
+    }
+    
+    .quick-stats {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 15px;
+      padding-top: 15px;
+      border-top: 1px solid var(--border-color);
+    }
+    
+    .stat-item {
+      text-align: center;
+    }
+    
+    .stat-value {
+      font-size: 1.2rem;
+      font-weight: 600;
+    }
+    
+    .stat-label {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+    }
+    
+    .latest-alerts {
+      margin-top: 20px;
+    }
+    
+    .alert-item {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      padding: 12px 15px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      background-color: rgba(255, 255, 255, 0.03);
+      transition: transform 0.2s ease;
+    }
+    
+    .alert-item:hover {
+      transform: translateX(5px);
+      background-color: rgba(255, 255, 255, 0.05);
+    }
+    
+    .alert-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+    
+    .alert-icon.temperature {
+      background-color: rgba(255, 107, 107, 0.1);
+      color: var(--temp-color);
+    }
+    
+    .alert-icon.humidity {
+      background-color: rgba(78, 205, 196, 0.1);
+      color: var(--humidity-color);
+    }
+    
+    .alert-icon.system {
+      background-color: rgba(255, 217, 61, 0.1);
+      color: var(--system-color);
+    }
+    
+    .alert-content {
+      flex: 1;
+    }
+    
+    .alert-title {
+      font-weight: 500;
+      margin-bottom: 3px;
+    }
+    
+    .alert-time {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+    }
+    
+    .see-all {
+      display: inline-block;
+      margin-top: 15px;
+      padding: 8px 15px;
+      border-radius: 6px;
+      background-color: var(--card-bg);
+      color: var(--accent-color);
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: all 0.2s ease;
+    }
+    
+    .see-all:hover {
+      background-color: rgba(59, 130, 246, 0.1);
+    }
+    
+    .alert-bell {
+      position: relative;
+    }
+    
+    .alert-count {
+      position: absolute;
+      top: -5px;
+      right: -5px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background-color: var(--status-danger);
+      color: white;
+      font-size: 0.7rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    @keyframes pulse {
+      0% {
+        opacity: 0.7;
+      }
+      50% {
+        opacity: 1;
+      }
+      100% {
+        opacity: 0.7;
+      }
+    }
+  </style>
 </head>
 <body>
-  <header>
-    <h1>Steam Room Monitoring System</h1>
-  </header>
-  
+  <div class="app-container">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="logo">
+        <i class="fas fa-temperature-high"></i>
+        <span>Steam Room</span>
+      </div>
   <nav>
-    <ul>
-      <li><a href="/" class="active">Dashboard</a></li>
-      <li><a href="/analytics">Analytics</a></li>
-      <li><a href="/alerts">Emergency Alerts</a></li>
-    </ul>
+        <a href="index.html" class="nav-item active">
+          <i class="fas fa-gauge-high"></i>
+          <span>Dashboard</span>
+        </a>
+        <a href="analytics.html" class="nav-item">
+          <i class="fas fa-chart-line"></i>
+          <span>Analytics</span>
+        </a>
+        <a href="alerts.html" class="nav-item">
+          <i class="fas fa-bell"></i>
+          <span>Alerts</span>
+        </a>
+        <a href="settings.html" class="nav-item">
+          <i class="fas fa-gear"></i>
+          <span>Settings</span>
+        </a>
   </nav>
-  
-  <div class="container">
-    <!-- Emergency Alert Container -->
-    <div id="emergency-alert" class="emergency-container">
-      <h2 class="emergency-title">⚠️ EMERGENCY ALERT ⚠️</h2>
-      <p class="emergency-message" id="emergency-message">Temperature exceeds emergency threshold!</p>
-      <div class="emergency-temp" id="emergency-temp">--°C</div>
-      <button id="resolve-emergency" class="btn btn-success">Resolve Emergency</button>
-    </div>
-    
-    <div class="dashboard-grid">
-      <!-- Current Temperature Panel -->
-      <div class="panel">
-        <div class="panel-header">
-          <h2 class="panel-title">Current Temperature</h2>
-        </div>
-        <div class="panel-body">
-          <div class="temperature-display">
-            <span id="temperature-value">--.-</span>
-            <span class="temperature-unit">°C</span>
-          </div>
-          <p class="temperature-info">Last updated: <span id="last-update">--</span></p>
-        </div>
-      </div>
-      
-      <!-- Current Humidity Panel -->
-      <div class="panel">
-        <div class="panel-header">
-          <h2 class="panel-title">Current Humidity</h2>
-        </div>
-        <div class="panel-body">
-          <div class="humidity-display" id="humidity-value">--%</div>
-          <p class="temperature-info">Relative humidity in steam room</p>
-        </div>
-      </div>
-      
-      <!-- System Status Panel -->
-      <div class="panel">
-        <div class="panel-header">
-          <h2 class="panel-title">System Status</h2>
-        </div>
-        <div class="panel-body">
-          <div class="alert alert-success">
-            <span>Monitoring active</span>
-          </div>
-          <div class="alert alert-info">
-            <span>Sensor reading every 5 minutes</span>
-          </div>
-          <div class="alert alert-info">
-            <span>MQTT update every 10 minutes</span>
-          </div>
-        </div>
+      <div class="sidebar-footer">
+        <a href="#" class="nav-item">
+          <i class="fas fa-sign-out-alt"></i>
+          <span>Logout</span>
+        </a>
       </div>
     </div>
     
+    <!-- Main content -->
+    <div class="main-content">
+      <div class="header">
+        <h1>Steam Room Dashboard</h1>
+        <div class="user-info">
+          <i class="fas fa-user-circle"></i>
+          <span>Admin User</span>
+        </div>
+      </div>
+      
+      <!-- Dashboard Grid -->
+      <div class="dashboard-grid">
+        <!-- Temperature Card -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Temperature</h2>
+            <div class="card-icon temperature-icon">
+              <i class="fas fa-temperature-high"></i>
+            </div>
+          </div>
+          <div class="badge-status" id="temp-status">
+            <i class="fas fa-circle"></i>
+            <span>Normal</span>
+          </div>
+          <div class="current-reading">
+            <span id="current-temp">--</span>
+            <span class="reading-unit">°C</span>
+          </div>
+          <div class="reading-trend-small">
+            <i class="fas fa-arrow-trend-up"></i>
+            <span id="temp-change">--</span> in the last hour
+          </div>
+          <div class="reading-time">Updated: <span id="temp-time">--</span></div>
+          <div class="mini-chart">
+            <canvas id="temp-chart"></canvas>
+          </div>
+        </div>
+
+        <!-- Humidity Card -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Humidity</h2>
+            <div class="card-icon humidity-icon">
+              <i class="fas fa-droplet"></i>
+        </div>
+      </div>
+          <div class="badge-status status-normal" id="humidity-status">
+            <i class="fas fa-circle"></i>
+            <span>Normal</span>
+          </div>
+          <div class="current-reading">
+            <span id="current-humidity">--</span>
+            <span class="reading-unit">%</span>
+          </div>
+          <div class="reading-trend-small">
+            <i class="fas fa-arrow-trend-up"></i>
+            <span id="humidity-change">--</span> in the last hour
+          </div>
+          <div class="reading-time">Updated: <span id="humidity-time">--</span></div>
+          <div class="mini-chart">
+            <canvas id="humidity-chart"></canvas>
+          </div>
+        </div>
+
+        <!-- System Status Card -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">System Status</h2>
+            <div class="card-icon">
+              <i class="fas fa-server"></i>
+            </div>
+          </div>
+          <div class="status-items">
+            <div class="status-item">
+              <div class="status-name">
+                <i class="fas fa-microchip"></i>
+                AWS IoT Connection
+              </div>
+              <div class="status-value">
+                <div class="status-indicator"></div>
+              </div>
+            </div>
+            <div class="status-item">
+              <div class="status-name">
+                <i class="fas fa-wifi"></i>
+                Sensor Connection
+              </div>
+              <div class="status-value">
+                <div class="status-indicator"></div>
+              </div>
+            </div>
+            <div class="status-item">
+              <div class="status-name">
+                <i class="fas fa-temperature-high"></i>
+                Temperature Sensor
+              </div>
+              <div class="status-value">
+                <div class="status-indicator"></div>
+              </div>
+            </div>
+            <div class="status-item">
+              <div class="status-name">
+                <i class="fas fa-droplet"></i>
+                Humidity Sensor
+              </div>
+              <div class="status-value">
+                <div class="status-indicator"></div>
+              </div>
+            </div>
+          </div>
+          <div class="quick-stats">
+            <div class="stat-item">
+              <div class="stat-value" id="uptime-value">--</div>
+              <div class="stat-label">Uptime</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value" id="data-points">--</div>
+              <div class="stat-label">Data Points</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value" id="active-alerts">--</div>
+              <div class="stat-label">Active Alerts</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Latest Alerts Card -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Latest Alerts</h2>
+            <div class="card-icon alert-icon">
+              <i class="fas fa-bell alert-bell">
+                <span class="alert-count" id="alert-count">0</span>
+              </i>
+            </div>
+          </div>
+          <div class="latest-alerts" id="latest-alerts">
+            <div class="alert-item">
+              <div class="alert-icon temperature">
+                <i class="fas fa-temperature-high"></i>
+              </div>
+              <div class="alert-content">
+                <div class="alert-title">Loading alerts...</div>
+                <div class="alert-time">Please wait</div>
+              </div>
+            </div>
+          </div>
+          <a href="alerts.html" class="see-all">
+            <i class="fas fa-arrow-right"></i>
+            See all alerts
+          </a>
+      </div>
+    </div>
+    
+      <!-- Detailed Charts Section -->
+      <div class="analytics-grid">
     <!-- Temperature Chart -->
-    <div class="content">
-      <h2>Temperature History</h2>
       <div class="chart-container">
-        <canvas id="temperature-chart"></canvas>
+          <div class="chart-header">
+            <div class="chart-title">Temperature History (3min intervals)</div>
+            <div class="chart-controls">
+              <button class="time-range-btn active" data-range="3m">3m</button>
+              <button class="time-range-btn" data-range="10m">10m</button>
+              <button class="time-range-btn" data-range="20m">20m</button>
+            </div>
+          </div>
+          <div class="chart-wrapper" style="height: 300px;">
+            <canvas id="detailed-temp-chart"></canvas>
       </div>
     </div>
     
     <!-- Humidity Chart -->
-    <div class="content">
-      <h2>Humidity History</h2>
       <div class="chart-container">
-        <canvas id="humidity-chart"></canvas>
+          <div class="chart-header">
+            <div class="chart-title">Humidity History (3min intervals)</div>
+            <div class="chart-controls">
+              <button class="time-range-btn active" data-range="3m">3m</button>
+              <button class="time-range-btn" data-range="10m">10m</button>
+              <button class="time-range-btn" data-range="20m">20m</button>
+            </div>
+          </div>
+          <div class="chart-wrapper" style="height: 300px;">
+            <canvas id="detailed-humidity-chart"></canvas>
+          </div>
+        </div>
       </div>
     </div>
   </div>
   
-  <!-- Scripts -->
-  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="/js/dashboard.js"></script>
+  <script>
+    // Initialize socket connection
+    const socket = io('http://localhost:3000');
+    
+    // DOM elements
+    const currentTemp = document.getElementById('current-temp');
+    const currentHumidity = document.getElementById('current-humidity');
+    const tempTime = document.getElementById('temp-time');
+    const humidityTime = document.getElementById('humidity-time');
+    const tempStatus = document.getElementById('temp-status');
+    const humidityStatus = document.getElementById('humidity-status');
+    const tempChange = document.getElementById('temp-change');
+    const humidityChange = document.getElementById('humidity-change');
+    const latestAlerts = document.getElementById('latest-alerts');
+    const alertCount = document.getElementById('alert-count');
+    const uptimeValue = document.getElementById('uptime-value');
+    const dataPoints = document.getElementById('data-points');
+    const activeAlerts = document.getElementById('active-alerts');
+    
+    // Mini charts
+    const tempCtx = document.getElementById('temp-chart').getContext('2d');
+    const humidityCtx = document.getElementById('humidity-chart').getContext('2d');
+    
+    // Detailed charts
+    const detailedTempCtx = document.getElementById('detailed-temp-chart').getContext('2d');
+    const detailedHumidityCtx = document.getElementById('detailed-humidity-chart').getContext('2d');
+    
+    // Chart configurations
+    const miniChartConfig = {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [{
+          data: [],
+          borderColor: '#ff6b6b',
+          borderWidth: 2,
+          pointRadius: 0,
+          tension: 0.3,
+          fill: false
+        }]
+      },
+      options: {
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            enabled: false
+          }
+        },
+        scales: {
+          x: {
+            display: false
+          },
+          y: {
+            display: false,
+            min: function(context) {
+              const values = context.chart.data.datasets[0].data;
+              return values.length ? Math.min(...values) - 1 : 0;
+            },
+            max: function(context) {
+              const values = context.chart.data.datasets[0].data;
+              return values.length ? Math.max(...values) + 1 : 100;
+            }
+          }
+        },
+        animation: false,
+        interaction: {
+          mode: 'nearest',
+          intersect: false
+        }
+      }
+    };
+    
+    // Initialize mini charts
+    const tempMiniChart = new Chart(tempCtx, {
+      ...miniChartConfig,
+      data: {
+        ...miniChartConfig.data,
+        datasets: [{
+          ...miniChartConfig.data.datasets[0],
+          borderColor: '#ff6b6b'
+        }]
+      }
+    });
+    
+    const humidityMiniChart = new Chart(humidityCtx, {
+      ...miniChartConfig,
+      data: {
+        ...miniChartConfig.data,
+        datasets: [{
+          ...miniChartConfig.data.datasets[0],
+          borderColor: '#4ecdc4'
+        }]
+      }
+    });
+    
+    // Detailed chart configuration
+    const detailedChartConfig = {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [{
+          data: [],
+          borderWidth: 3,
+          tension: 0.3,
+          pointRadius: 2,
+          pointHoverRadius: 5,
+          fill: true
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            mode: 'index',
+            intersect: false,
+            backgroundColor: 'rgba(17, 24, 39, 0.95)',
+            titleFont: {
+              size: 13,
+              weight: '600',
+              family: "'Segoe UI', sans-serif"
+            },
+            bodyFont: {
+              size: 12,
+              family: "'Segoe UI', sans-serif"
+            },
+            padding: 12,
+            cornerRadius: 8,
+            displayColors: false,
+            callbacks: {
+              title: function(tooltipItems) {
+                return new Date(tooltipItems[0].label).toLocaleTimeString();
+              },
+              label: function(context) {
+                return ` ${context.parsed.y.toFixed(1)}${context.dataset.unit}`;
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: false,
+            grid: {
+              color: 'rgba(255, 255, 255, 0.04)'
+            },
+            ticks: {
+              font: {
+                size: 11
+              },
+              color: 'rgba(255, 255, 255, 0.7)'
+            }
+          },
+          x: {
+            grid: {
+              display: false
+            },
+            ticks: {
+              maxTicksLimit: 8,
+              maxRotation: 0,
+              font: {
+                size: 11
+              },
+              color: 'rgba(255, 255, 255, 0.7)',
+              callback: function(value) {
+                return new Date(value).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+              }
+            }
+          }
+        },
+        animation: {
+          duration: 300
+        }
+      }
+    };
+    
+    // Create temp gradient
+    const tempGradient = detailedTempCtx.createLinearGradient(0, 0, 0, 300);
+    tempGradient.addColorStop(0, 'rgba(255, 107, 107, 0.3)');
+    tempGradient.addColorStop(1, 'rgba(255, 107, 107, 0.0)');
+    
+    // Create humidity gradient
+    const humidityGradient = detailedHumidityCtx.createLinearGradient(0, 0, 0, 300);
+    humidityGradient.addColorStop(0, 'rgba(78, 205, 196, 0.3)');
+    humidityGradient.addColorStop(1, 'rgba(78, 205, 196, 0.0)');
+    
+    // Initialize detailed charts
+    const detailedTempChart = new Chart(detailedTempCtx, {
+      ...detailedChartConfig,
+      data: {
+        labels: [],
+        datasets: [{
+          ...detailedChartConfig.data.datasets[0],
+          label: 'Temperature',
+          borderColor: '#ff6b6b',
+          backgroundColor: tempGradient,
+          unit: '°C'
+        }]
+      },
+      options: {
+        ...detailedChartConfig.options,
+        scales: {
+          ...detailedChartConfig.options.scales,
+          y: {
+            ...detailedChartConfig.options.scales.y,
+            title: {
+              display: true,
+              text: 'Temperature (°C)',
+              color: 'rgba(255, 255, 255, 0.7)'
+            }
+          }
+        }
+      }
+    });
+    
+    const detailedHumidityChart = new Chart(detailedHumidityCtx, {
+      ...detailedChartConfig,
+      data: {
+        labels: [],
+        datasets: [{
+          ...detailedChartConfig.data.datasets[0],
+          label: 'Humidity',
+          borderColor: '#4ecdc4',
+          backgroundColor: humidityGradient,
+          unit: '%'
+        }]
+      },
+      options: {
+        ...detailedChartConfig.options,
+        scales: {
+          ...detailedChartConfig.options.scales,
+          y: {
+            ...detailedChartConfig.options.scales.y,
+            title: {
+              display: true,
+              text: 'Humidity (%)',
+              color: 'rgba(255, 255, 255, 0.7)'
+            }
+          }
+        }
+      }
+    });
+    
+    // Current time range for detailed charts
+    let currentDetailedRange = '3m';
+    
+    // Format timestamp
+    function formatTime(timestamp) {
+      const date = new Date(timestamp);
+      return date.toLocaleTimeString();
+    }
+    
+    // Update temperature display
+    function updateTemperatureDisplay(data) {
+      currentTemp.textContent = data.value.toFixed(1);
+      tempTime.textContent = formatTime(data.timestamp);
+      
+      // Update status badge
+      if (data.value > 34.5) {
+        tempStatus.className = 'badge-status status-critical';
+        tempStatus.innerHTML = '<i class="fas fa-triangle-exclamation"></i><span>Critical</span>';
+      } else if (data.value > 30) {
+        tempStatus.className = 'badge-status status-warning';
+        tempStatus.innerHTML = '<i class="fas fa-exclamation-circle"></i><span>Warning</span>';
+      } else {
+        tempStatus.className = 'badge-status status-normal';
+        tempStatus.innerHTML = '<i class="fas fa-circle"></i><span>Normal</span>';
+      }
+      
+      // Update mini chart (keep last 20 readings)
+      if (tempMiniChart.data.labels.length >= 20) {
+        tempMiniChart.data.labels.shift();
+        tempMiniChart.data.datasets[0].data.shift();
+      }
+      
+      tempMiniChart.data.labels.push(data.timestamp);
+      tempMiniChart.data.datasets[0].data.push(data.value);
+      tempMiniChart.update();
+    }
+    
+    // Update humidity display
+    function updateHumidityDisplay(data) {
+      currentHumidity.textContent = data.value.toFixed(1);
+      humidityTime.textContent = formatTime(data.timestamp);
+      
+      // Update status badge
+      if (data.value > 90) {
+        humidityStatus.className = 'badge-status status-warning';
+        humidityStatus.innerHTML = '<i class="fas fa-exclamation-circle"></i><span>High</span>';
+      } else if (data.value < 50) {
+        humidityStatus.className = 'badge-status status-warning';
+        humidityStatus.innerHTML = '<i class="fas fa-exclamation-circle"></i><span>Low</span>';
+      } else {
+        humidityStatus.className = 'badge-status status-normal';
+        humidityStatus.innerHTML = '<i class="fas fa-circle"></i><span>Normal</span>';
+      }
+      
+      // Update mini chart (keep last 20 readings)
+      if (humidityMiniChart.data.labels.length >= 20) {
+        humidityMiniChart.data.labels.shift();
+        humidityMiniChart.data.datasets[0].data.shift();
+      }
+      
+      humidityMiniChart.data.labels.push(data.timestamp);
+      humidityMiniChart.data.datasets[0].data.push(data.value);
+      humidityMiniChart.update();
+    }
+    
+    // Update alerts
+    function updateAlerts(alerts) {
+      // Filter active alerts
+      const activeAlertsList = alerts.filter(alert => !alert.resolved);
+      const latestActiveAlerts = activeAlertsList.slice(0, 3);
+      
+      // Update alert count
+      alertCount.textContent = activeAlertsList.length;
+      activeAlerts.textContent = activeAlertsList.length;
+      
+      // Update alerts display
+      latestAlerts.innerHTML = '';
+      
+      if (latestActiveAlerts.length === 0) {
+        latestAlerts.innerHTML = `
+          <div class="alert-item">
+            <div class="alert-icon system">
+              <i class="fas fa-check-circle"></i>
+            </div>
+            <div class="alert-content">
+              <div class="alert-title">No active alerts</div>
+              <div class="alert-time">System is running normally</div>
+            </div>
+          </div>
+        `;
+        return;
+      }
+      
+      latestActiveAlerts.forEach(alert => {
+        const alertEl = document.createElement('div');
+        alertEl.className = 'alert-item';
+        
+        let icon;
+        switch(alert.type) {
+          case 'temperature':
+            icon = 'fa-temperature-high';
+            break;
+          case 'humidity':
+            icon = 'fa-droplet';
+            break;
+          default:
+            icon = 'fa-microchip';
+        }
+        
+        alertEl.innerHTML = `
+          <div class="alert-icon ${alert.type}">
+            <i class="fas ${icon}"></i>
+          </div>
+          <div class="alert-content">
+            <div class="alert-title">${alert.message}</div>
+            <div class="alert-time">${formatTime(alert.timestamp)}</div>
+          </div>
+        `;
+        
+        latestAlerts.appendChild(alertEl);
+      });
+    }
+    
+    // Update system stats
+    function updateSystemStats() {
+      socket.emit('getAnalyticsStats', (stats) => {
+        // Update temperature trend
+        tempChange.textContent = `${stats.tempTrend > 0 ? '+' : ''}${stats.tempTrend.toFixed(1)}%`;
+        tempChange.className = stats.tempTrend > 0 ? 'trend-up' : 'trend-down';
+        
+        // Update humidity trend
+        humidityChange.textContent = `${stats.humidityTrend > 0 ? '+' : ''}${stats.humidityTrend.toFixed(1)}%`;
+        humidityChange.className = stats.humidityTrend > 0 ? 'trend-up' : 'trend-down';
+        
+        // Update uptime
+        uptimeValue.textContent = `${stats.uptime.toFixed(1)}%`;
+        
+        // Update data points (total readings in history)
+        const totalPoints = tempMiniChart.data.labels.length + humidityMiniChart.data.labels.length;
+        dataPoints.textContent = totalPoints;
+      });
+    }
+    
+    // Socket events
+    socket.on('connect', () => {
+      console.log('Connected to server');
+      
+      // Get initial data
+      socket.emit('init-data', (data) => {
+        if (data.temperature) {
+          updateTemperatureDisplay(data.temperature);
+        }
+        
+        if (data.humidity) {
+          updateHumidityDisplay(data.humidity);
+        }
+        
+        if (data.alerts) {
+          updateAlerts(data.alerts);
+        }
+        
+        updateSystemStats();
+      });
+      
+      // Get temperature data for mini chart
+      socket.emit('getTemperatureData', { range: '20m' }, (data) => {
+        tempMiniChart.data.labels = data.labels;
+        tempMiniChart.data.datasets[0].data = data.values;
+        tempMiniChart.update();
+      });
+      
+      // Get humidity data for mini chart
+      socket.emit('getHumidityData', { range: '20m' }, (data) => {
+        humidityMiniChart.data.labels = data.labels;
+        humidityMiniChart.data.datasets[0].data = data.values;
+        humidityMiniChart.update();
+      });
+      
+      // Get alerts
+      socket.emit('getAlerts', (alerts) => {
+        updateAlerts(alerts);
+      });
+    });
+    
+    // Listen for temperature updates
+    socket.on('temperature-update', (data) => {
+      updateTemperatureDisplay(data);
+      updateSystemStats();
+    });
+    
+    // Listen for humidity updates
+    socket.on('humidity-update', (data) => {
+      updateHumidityDisplay(data);
+      updateSystemStats();
+    });
+    
+    // Listen for alerts
+    socket.on('alert', (alert) => {
+      socket.emit('getAlerts', (alerts) => {
+        updateAlerts(alerts);
+      });
+    });
+    
+    // Listen for resolved alerts
+    socket.on('alert-resolved', () => {
+      socket.emit('getAlerts', (alerts) => {
+        updateAlerts(alerts);
+      });
+    });
+    
+    // Auto-refresh system stats every 30 seconds
+    setInterval(updateSystemStats, 30000);
+    
+    // Function to update detailed charts
+    function updateDetailedCharts() {
+      // Calculate time ranges in milliseconds
+      let timeRange;
+      switch(currentDetailedRange) {
+        case '3m':
+          timeRange = 3 * 60 * 1000; // 3 minutes
+          break;
+        case '10m':
+          timeRange = 10 * 60 * 1000; // 10 minutes
+          break;
+        case '20m':
+          timeRange = 20 * 60 * 1000; // 20 minutes
+          break;
+        default:
+          timeRange = 3 * 60 * 1000; // Default to 3 minutes
+      }
+      
+      socket.emit('getTemperatureData', { range: currentDetailedRange }, (data) => {
+        if (!data || !data.labels || !data.values) return;
+        
+        const timestamps = data.labels.map(timestamp => new Date(timestamp).getTime());
+        detailedTempChart.data.labels = timestamps;
+        detailedTempChart.data.datasets[0].data = data.values;
+        detailedTempChart.update('none');
+      });
+      
+      socket.emit('getHumidityData', { range: currentDetailedRange }, (data) => {
+        if (!data || !data.labels || !data.values) return;
+        
+        const timestamps = data.labels.map(timestamp => new Date(timestamp).getTime());
+        detailedHumidityChart.data.labels = timestamps;
+        detailedHumidityChart.data.datasets[0].data = data.values;
+        detailedHumidityChart.update('none');
+      });
+    }
+    
+    // Add event listeners to time range buttons
+    document.querySelectorAll('.time-range-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        // Find the parent chart container to only affect buttons in that container
+        const chartContainer = e.target.closest('.chart-container');
+        
+        // Remove active class from all buttons in this container only
+        chartContainer.querySelectorAll('.time-range-btn').forEach(b => {
+          b.classList.remove('active');
+        });
+        
+        // Add active class to the clicked button
+        btn.classList.add('active');
+        
+        // Set the current range
+        currentDetailedRange = btn.dataset.range;
+        
+        // Update charts with new time range
+        updateDetailedCharts();
+      });
+    });
+    
+    // Initialize detailed charts when socket connects
+    socket.on('connect', () => {
+      // Initialize detailed charts with data
+      updateDetailedCharts();
+      
+      // Update detailed charts every 3 seconds
+      setInterval(updateDetailedCharts, 3000);
+    });
+  </script>
 </body>
 </html> 
