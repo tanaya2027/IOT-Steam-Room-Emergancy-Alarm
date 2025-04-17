@@ -40,16 +40,35 @@ const chartOptions = {
   }
 };
 
-// Initialize charts
+// STATIC DATA FOR SCREENSHOTS
+const STATIC_TEMP_DATA = {
+  labels: [
+    "10:00", "10:05", "10:10", "10:15", "10:20", "10:25", "10:30", 
+    "10:35", "10:40", "10:45", "10:50", "10:55", "11:00", "11:05", 
+    "11:10", "11:15", "11:20", "11:25", "11:30", "11:35"
+  ],
+  temperatures: [
+    25.2, 26.3, 27.8, 29.5, 31.2, 33.0, 34.5, 
+    36.8, 38.2, 40.1, 41.5, 42.7, 43.9, 45.2, 
+    47.0, 48.3, 49.1, 51.5, 53.2, 52.7
+  ],
+  humidity: [
+    62, 60, 58, 57, 55, 52, 50, 
+    49, 47, 46, 44, 42, 40, 38, 
+    36, 34, 32, 30, 27, 25
+  ]
+};
+
+// Initialize charts with static data
 function initializeCharts() {
   // Temperature chart
   tempChart = new Chart(tempChartCanvas, {
     type: 'line',
     data: {
-      labels: [],
+      labels: STATIC_TEMP_DATA.labels,
       datasets: [{
         label: 'Temperature (°C)',
-        data: [],
+        data: STATIC_TEMP_DATA.temperatures,
         borderColor: 'rgb(255, 99, 132)',
         backgroundColor: 'rgba(255, 99, 132, 0.1)',
         borderWidth: 2,
@@ -76,10 +95,10 @@ function initializeCharts() {
   humidityChart = new Chart(humidityChartCanvas, {
     type: 'line',
     data: {
-      labels: [],
+      labels: STATIC_TEMP_DATA.labels,
       datasets: [{
         label: 'Humidity (%)',
-        data: [],
+        data: STATIC_TEMP_DATA.humidity,
         borderColor: 'rgb(54, 162, 235)',
         backgroundColor: 'rgba(54, 162, 235, 0.1)',
         borderWidth: 2,
@@ -101,6 +120,21 @@ function initializeCharts() {
       }
     }
   });
+  
+  // Set static data for display values
+  tempDisplay.textContent = STATIC_TEMP_DATA.temperatures[STATIC_TEMP_DATA.temperatures.length - 1].toFixed(1);
+  humidityDisplay.textContent = `${STATIC_TEMP_DATA.humidity[STATIC_TEMP_DATA.humidity.length - 1]}%`;
+  lastUpdateEl.textContent = new Date().toLocaleString();
+  
+  // Show emergency alert with static data
+  showStaticEmergencyAlert();
+}
+
+// Show static emergency alert for screenshots
+function showStaticEmergencyAlert() {
+  emergencyContainer.classList.add('active');
+  emergencyTemp.textContent = `${STATIC_TEMP_DATA.temperatures[STATIC_TEMP_DATA.temperatures.length - 1].toFixed(1)}°C`;
+  emergencyMsg.textContent = `Temperature exceeds emergency threshold of 50°C!`;
 }
 
 // Format date for display

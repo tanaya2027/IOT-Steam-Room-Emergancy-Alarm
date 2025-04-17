@@ -38,16 +38,35 @@ const chartOptions = {
   }
 };
 
-// Initialize charts
+// STATIC DATA FOR SCREENSHOTS
+const STATIC_TEMP_DATA = {
+  labels: [
+    "10:00", "10:05", "10:10", "10:15", "10:20", "10:25", "10:30", 
+    "10:35", "10:40", "10:45", "10:50", "10:55", "11:00", "11:05", 
+    "11:10", "11:15", "11:20", "11:25", "11:30", "11:35"
+  ],
+  temperatures: [
+    25.2, 26.3, 27.8, 29.5, 31.2, 33.0, 34.5, 
+    36.8, 38.2, 40.1, 41.5, 42.7, 43.9, 45.2, 
+    47.0, 48.3, 49.1, 51.5, 53.2, 52.7
+  ],
+  humidity: [
+    62, 60, 58, 57, 55, 52, 50, 
+    49, 47, 46, 44, 42, 40, 38, 
+    36, 34, 32, 30, 27, 25
+  ]
+};
+
+// Initialize charts with static data
 function initializeCharts() {
   // Temperature chart
   tempChart = new Chart(tempChartCanvas, {
     type: 'line',
     data: {
-      labels: [],
+      labels: STATIC_TEMP_DATA.labels,
       datasets: [{
         label: 'Temperature (°C)',
-        data: [],
+        data: STATIC_TEMP_DATA.temperatures,
         borderColor: 'rgb(255, 99, 132)',
         backgroundColor: 'rgba(255, 99, 132, 0.1)',
         borderWidth: 2,
@@ -74,10 +93,10 @@ function initializeCharts() {
   humidityChart = new Chart(humidityChartCanvas, {
     type: 'line',
     data: {
-      labels: [],
+      labels: STATIC_TEMP_DATA.labels,
       datasets: [{
         label: 'Humidity (%)',
-        data: [],
+        data: STATIC_TEMP_DATA.humidity,
         borderColor: 'rgb(54, 162, 235)',
         backgroundColor: 'rgba(54, 162, 235, 0.1)',
         borderWidth: 2,
@@ -99,6 +118,21 @@ function initializeCharts() {
       }
     }
   });
+
+  // Set static data for display values
+  tempDisplay.textContent = STATIC_TEMP_DATA.temperatures[STATIC_TEMP_DATA.temperatures.length - 1].toFixed(1);
+  humidityDisplay.textContent = `${STATIC_TEMP_DATA.humidity[STATIC_TEMP_DATA.humidity.length - 1]}%`;
+  lastUpdateEl.textContent = new Date().toLocaleString();
+  
+  // Show emergency alert with static data
+  showStaticEmergencyAlert();
+}
+
+// Show static emergency alert for screenshots
+function showStaticEmergencyAlert() {
+  emergencyContainer.classList.add('active');
+  emergencyTemp.textContent = `${STATIC_TEMP_DATA.temperatures[STATIC_TEMP_DATA.temperatures.length - 1].toFixed(1)}°C`;
+  emergencyMsg.textContent = `Temperature exceeds emergency threshold of 50°C!`;
 }
 
 // Format date for display
@@ -175,12 +209,17 @@ function updateTemperatureChart(reading) {
   const maxDataPoints = 20;
   
   // Add new data point to temperature chart
-  tempChart.data.labels.push(formatDate(reading.createdAt));
-  tempChart.data.datasets[0].data.push(reading.temperature);
+  const formattedTime = formatDate(reading.timestamp);
   
-  // Add new data point to humidity chart
-  humidityChart.data.labels.push(formatDate(reading.createdAt));
-  humidityChart.data.datasets[0].data.push(reading.humidity);
+  // Add new data point to temperature chart
+  tempChart.data.labels.push(formattedTime);
+  tempChart.data.datasets[0].data.push(reading.value);
+  
+  // Add new data point to humidity chart if humidity data is available
+  if (reading.humidity !== undefined) {
+    humidityChart.data.labels.push(formattedTime);
+    humidityChart.data.datasets[0].data.push(reading.humidity);
+  }
   
   // Limit the number of data points
   if (tempChart.data.labels.length > maxDataPoints) {
@@ -198,32 +237,64 @@ function updateTemperatureChart(reading) {
   humidityChart.update();
 }
 
-// Fetch historical temperature data
-function fetchTemperatureHistory() {
-  fetch('http://localhost:8000/api/temperature?limit=20')
-    .then(response => response.json())
-    .then(data => {
-      if (data.data && data.data.length > 0) {
-        // Get the most recent reading for display
-        const latestReading = data.data[0];
-        updateTemperatureDisplay(latestReading);
-        
-        // Add historical data to charts
-        data.data.reverse().forEach(reading => {
-          tempChart.data.labels.push(formatDate(reading.createdAt));
-          tempChart.data.datasets[0].data.push(reading.temperature);
-          
-          humidityChart.data.labels.push(formatDate(reading.createdAt));
-          humidityChart.data.datasets[0].data.push(reading.humidity);
-        });
-        
-        tempChart.update();
-        humidityChart.update();
+// Fetch data for charts with time range
+function fetchChartData(range = '20m') {
+  // Fetch temperature data
+  socket.emit('getTemperatureData', { range }, (data) => {
+    if (data.labels && data.values && data.timestamps) {
+      // Clear existing data
+      tempChart.data.labels = [];
+      tempChart.data.datasets[0].data = [];
+      
+      // Add all data points
+      for (let i = 0; i < data.labels.length; i++) {
+        tempChart.data.labels.push(data.labels[i]);
+        tempChart.data.datasets[0].data.push(data.values[i]);
       }
-    })
-    .catch(error => {
-      console.error('Error fetching temperature history:', error);
-    });
+      
+      // Update the chart with the new data
+      tempChart.update();
+      
+      // Display the latest reading if available
+      if (data.values.length > 0) {
+        const lastIndex = data.values.length - 1;
+        const latestTemp = data.values[lastIndex];
+        
+        if (tempDisplay) {
+          tempDisplay.textContent = latestTemp.toFixed(1);
+          lastUpdateEl.textContent = data.points[lastIndex].formattedTime;
+        }
+      }
+    }
+  });
+  
+  // Fetch humidity data
+  socket.emit('getHumidityData', { range }, (data) => {
+    if (data.labels && data.values) {
+      // Clear existing data
+      humidityChart.data.labels = [];
+      humidityChart.data.datasets[0].data = [];
+      
+      // Add all data points
+      for (let i = 0; i < data.labels.length; i++) {
+        humidityChart.data.labels.push(data.labels[i]);
+        humidityChart.data.datasets[0].data.push(data.values[i]);
+      }
+      
+      // Update the chart with the new data
+      humidityChart.update();
+      
+      // Display the latest reading if available
+      if (data.values.length > 0) {
+        const lastIndex = data.values.length - 1;
+        const latestHumidity = data.values[lastIndex];
+        
+        if (humidityDisplay) {
+          humidityDisplay.textContent = `${latestHumidity.toFixed(1)}%`;
+        }
+      }
+    }
+  });
 }
 
 // Check for active emergencies
@@ -244,9 +315,67 @@ function checkActiveEmergencies() {
     });
 }
 
+// Document ready handler
+document.addEventListener('DOMContentLoaded', function() {
+  // Initialize charts
+  initializeCharts();
+  
+  // Fetch initial data with default 20-minute range
+  fetchChartData('20m');
+  
+  // Check for active emergencies
+  checkActiveEmergencies();
+  
+  // Add event listeners for time range buttons if they exist
+  const timeRangeButtons = document.querySelectorAll('.time-range-btn');
+  if (timeRangeButtons.length > 0) {
+    timeRangeButtons.forEach(button => {
+      button.addEventListener('click', function() {
+        // Remove active class from all buttons
+        timeRangeButtons.forEach(btn => btn.classList.remove('active'));
+        
+        // Add active class to clicked button
+        this.classList.add('active');
+        
+        // Get the time range from the button's data attribute
+        const range = this.dataset.range || '20m';
+        
+        // Fetch chart data with the selected range
+        fetchChartData(range);
+      });
+    });
+  }
+});
+
 // Socket.io event handlers
-socket.on('temperature-update', (reading) => {
-  updateTemperatureDisplay(reading);
+socket.on('temperature-update', (data) => {
+  // Update displays with the new reading
+  if (tempDisplay) {
+    tempDisplay.textContent = data.value.toFixed(1);
+    lastUpdateEl.textContent = formatDate(data.timestamp);
+  }
+  
+  // Check for emergency
+  if (data.value > TEMPERATURE_THRESHOLD) {
+    showEmergencyAlert(data);
+  }
+  
+  // Add the new data point to the chart
+  updateTemperatureChart({
+    timestamp: data.timestamp,
+    value: data.value,
+    humidity: data.humidity
+  });
+});
+
+socket.on('humidity-update', (data) => {
+  // Update humidity display if it exists
+  if (humidityDisplay) {
+    humidityDisplay.textContent = `${data.value.toFixed(1)}%`;
+  }
+  
+  // We don't need to update the chart here as the temperature-update handler
+  // already does this if humidity data is included
 });
 
 socket.on('emergency-alert', (alert) => {
@@ -269,28 +398,4 @@ socket.on('active-emergencies', (alerts) => {
     // Setup resolve button
     resolveBtn.onclick = () => resolveEmergency(latestEmergency._id);
   }
-});
-
-// Initialize on document load
-document.addEventListener('DOMContentLoaded', () => {
-  initializeCharts();
-  fetchTemperatureHistory();
-  checkActiveEmergencies();
-  
-  // Setup resolve button for general use
-  resolveBtn.onclick = () => {
-    fetch('http://localhost:8000/api/emergencies?resolved=false')
-      .then(response => response.json())
-      .then(data => {
-        if (data.data && data.data.length > 0) {
-          resolveEmergency(data.data[0]._id);
-        } else {
-          emergencyContainer.classList.remove('active');
-          stopAlarmSound();
-        }
-      })
-      .catch(error => {
-        console.error('Error resolving emergency:', error);
-      });
-  };
 }); 

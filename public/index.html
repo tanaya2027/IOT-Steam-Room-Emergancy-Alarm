@@ -746,7 +746,7 @@
       tempTime.textContent = formatTime(data.timestamp);
       
       // Update status badge
-      if (data.value > 34.5) {
+      if (data.value > 36) {
         tempStatus.className = 'badge-status status-critical';
         tempStatus.innerHTML = '<i class="fas fa-triangle-exclamation"></i><span>Critical</span>';
       } else if (data.value > 30) {

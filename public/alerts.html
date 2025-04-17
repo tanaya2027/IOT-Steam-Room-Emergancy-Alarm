@@ -364,9 +364,8 @@
             <i class="fas fa-volume-high"></i>
           </div>
           <div>
-            <h3 style="margin-bottom: 8px;">Browser Sound Permission Required</h3>
-            <p>For emergency alarms to work correctly, your browser needs permission to play sounds. Click the "Test Alarm" button and allow sound playback when prompted.</p>
-            <p style="margin-top: 8px;">If you hear no sound, check your browser's sound settings and make sure your volume is turned up.</p>
+            <h3>Enable Sound Notifications</h3>
+            <p>Please enable sound notifications to receive alerts.</p>
           </div>
         </div>
       </div>
@@ -437,12 +436,11 @@
   </div>
   
   <!-- Alert sound -->
-  <audio id="alert-sound" preload="auto">
-    <source src="audio/alert.mp3" type="audio/mpeg">
+  <audio id="alert-sound" preload="auto"
+     src="audio/alarm.mp3.mp3" type="audio/mpeg">
   </audio>
   <!-- Emergency alarm sound - louder and more persistent -->
-  <audio id="emergency-alarm" preload="auto" loop>
-    <source src="audio/alarm.mp3" type="audio/mpeg">
+  <audio id="emergency-alarm" preload="auto" src="audio/alarm.mp3.mp3" type="audio/mpeg">
   </audio>
 
   <script>
@@ -459,6 +457,44 @@
     
     // Unlock audio on page interaction
     document.addEventListener('DOMContentLoaded', () => {
+      // Check if audio files are loaded correctly
+      console.log("Checking audio files...");
+      
+      // Check emergency alarm
+      emergencyAlarm.addEventListener('error', function() {
+        console.error("Emergency alarm failed to load. Trying alternative URL...");
+        // Try alternative URLs
+        const audioElement = document.getElementById('emergency-alarm');
+        const sourceElement = audioElement.querySelector('source');
+        
+        // Try alternative paths
+        const alternativePaths = [
+          "audio/alarm.mp3",
+          "/audio/alarm.mp3",
+          "./audio/alarm.mp3",
+          "../audio/alarm.mp3"
+        ];
+        
+        let pathIndex = 0;
+        function tryNextPath() {
+          if (pathIndex < alternativePaths.length) {
+            sourceElement.src = alternativePaths[pathIndex];
+            console.log("Trying path: " + alternativePaths[pathIndex]);
+            audioElement.load();
+            pathIndex++;
+          } else {
+            console.error("Failed to load alarm sound from all paths");
+          }
+        }
+        
+        tryNextPath();
+        audioElement.addEventListener('error', tryNextPath);
+      });
+      
+      // Preload the audio files
+      alertSound.load();
+      emergencyAlarm.load();
+      
       // Unlock audio context on first interaction with the page
       document.body.addEventListener('click', unlockAudio, { once: true });
       document.body.addEventListener('touchstart', unlockAudio, { once: true });
@@ -540,6 +576,16 @@
         <div class="alert-detail">
           <i class="fas fa-arrow-up"></i>
           <span>Threshold: ${alert.threshold}°C</span>
+        </div>
+        `;
+      }
+      
+      // Add buzzer status for temperature alerts
+      if (alert.type === 'temperature' && alert.value > 36.0) {
+        detailsHTML += `
+        <div class="alert-detail">
+          <i class="fas fa-bell"></i>
+          <span>Hardware Buzzer: Active</span>
         </div>
         `;
       }
@@ -691,17 +737,22 @@
     const testAlarmBtn = document.getElementById('test-alarm');
     
     testAlarmBtn.addEventListener('click', function() {
-      if (emergencyAlarmEnabled) {
-        // Play alarm using user interaction
-        emergencyAlarm.pause();
-        emergencyAlarm.currentTime = 0;
+      // Always play the alarm regardless of emergencyAlarmEnabled setting
+      // Reset the alarm
+      emergencyAlarm.pause();
+      emergencyAlarm.currentTime = 0;
+      emergencyAlarm.volume = 1.0;
+      
+      // Change button to stop button
+      this.innerHTML = '<i class="fas fa-stop"></i>Stop Test';
+      
+      // Try multiple ways to play the sound with user interaction
+      try {
+        // Method 1: Standard play
+        const playPromise = emergencyAlarm.play();
         
-        // Change button to stop button
-        this.innerHTML = '<i class="fas fa-stop"></i>Stop Test';
-        
-        // Play the sound
-        emergencyAlarm.play()
-          .then(_ => {
+        if (playPromise !== undefined) {
+          playPromise.then(_ => {
             // Audio is playing
             console.log("Emergency alarm playing successfully");
             
@@ -716,89 +767,40 @@
             }, 3000);
           })
           .catch(error => {
-            // Auto-play was prevented
-            console.error("Emergency alarm play failed:", error);
-            alert("Please ensure your browser allows audio playback. Click 'OK' and try again.");
-            this.innerHTML = '<i class="fas fa-play"></i>Test Alarm';
+            console.error("Method 1 failed:", error);
             
-            // Show instructions to the user
-            const instructions = document.createElement('div');
-            instructions.className = 'card';
-            instructions.style.cssText = 'margin-top: 15px; padding: 15px; background-color: rgba(59, 130, 246, 0.1); border-radius: 10px;';
-            instructions.innerHTML = `
-              <h3 style="margin-bottom: 10px;">How to enable audio in your browser</h3>
-              <ol style="margin-left: 20px;">
-                <li style="margin-bottom: 8px;">Click on the site settings icon in your browser's address bar (lock or info icon)</li>
-                <li style="margin-bottom: 8px;">Look for "Sound" or "Audio" permissions</li>
-                <li style="margin-bottom: 8px;">Set it to "Allow"</li>
-                <li style="margin-bottom: 8px;">Reload the page and try again</li>
-              </ol>
-              <p style="margin-top: 10px;">Alternatively, you can upload and test your own sounds on the <a href="audio.html" style="color: var(--accent-color);">Sound Setup</a> page.</p>
-            `;
-            
-            // Add the instructions below the sound toggle
-            const soundControls = document.querySelector('.sound-controls');
-            if (!document.getElementById('audio-instructions')) {
-              instructions.id = 'audio-instructions';
-              soundControls.insertAdjacentElement('afterend', instructions);
+            // Method 2: Try with AudioContext
+            try {
+              const AudioContext = window.AudioContext || window.webkitAudioContext;
+              const audioCtx = new AudioContext();
+              const audioElement = document.getElementById('emergency-alarm');
+              const track = audioCtx.createMediaElementSource(audioElement);
+              track.connect(audioCtx.destination);
               
-              // Remove after 20 seconds
+              // Now try to play again
+              audioElement.play()
+                .then(() => console.log("Method 2 succeeded"))
+                .catch(e => console.error("Method 2 failed:", e));
+                
+              // Stop after 3 seconds
               setTimeout(() => {
-                if (instructions.parentNode) {
-                  instructions.parentNode.removeChild(instructions);
-                }
-              }, 20000);
+                audioElement.pause();
+                audioElement.currentTime = 0;
+                this.innerHTML = '<i class="fas fa-play"></i>Test Alarm';
+              }, 3000);
+            } catch (e) {
+              console.error("Method 2 setup failed:", e);
+              alert("Please ensure your browser allows audio playback. Click 'OK' and try again.");
+              this.innerHTML = '<i class="fas fa-play"></i>Test Alarm';
             }
           });
+        }
+      } catch (error) {
+        console.error("Emergency alarm test failed:", error);
+        alert("Audio playback failed. Please try a different browser or check your audio settings.");
+        this.innerHTML = '<i class="fas fa-play"></i>Test Alarm';
       }
     });
-    
-    // Improved function to play alarm sound
-    function playEmergencyAlarm() {
-      if (!soundEnabled || !emergencyAlarmEnabled) return;
-      
-      // Make sure it's not already playing
-      emergencyAlarm.pause();
-      emergencyAlarm.currentTime = 0;
-      
-      // Need user interaction to play audio
-      const userInteraction = () => {
-        // Remove event listeners after first interaction
-        document.removeEventListener('click', userInteraction);
-        document.removeEventListener('touchstart', userInteraction);
-        
-        // Play the alarm
-        emergencyAlarm.play().catch(error => {
-          console.error("Emergency alarm autoplay failed:", error);
-          
-          // Create a flashing notification on the page
-          createEmergencyNotification();
-          
-          // Try again with user confirmation
-          setTimeout(() => {
-            const shouldPlay = confirm("EMERGENCY: High temperature detected! Play alarm sound?");
-            if (shouldPlay) {
-              emergencyAlarm.play().catch(e => console.error("Still can't play alarm:", e));
-            }
-          }, 100);
-        });
-      };
-      
-      // Check if we've already had user interaction
-      if (document.documentElement.classList.contains('audio-unlocked')) {
-        emergencyAlarm.play().catch(error => {
-          console.error("Emergency alarm autoplay failed:", error);
-          createEmergencyNotification();
-        });
-      } else {
-        // Add interaction listeners
-        document.addEventListener('click', userInteraction);
-        document.addEventListener('touchstart', userInteraction);
-        
-        // Show visible notification immediately
-        createEmergencyNotification();
-      }
-    }
     
     // Create a visible emergency notification that can't be missed
     function createEmergencyNotification() {
@@ -829,7 +831,7 @@
         <i class="fas fa-exclamation-triangle" style="font-size: 24px;"></i>
         <div>
           <div style="font-size: 16px; margin-bottom: 5px;">EMERGENCY: High Temperature Alert!</div>
-          <div style="font-size: 14px;">Temperature has exceeded 34.5°C</div>
+          <div style="font-size: 14px;">Temperature has exceeded 36°C</div>
         </div>
         <button id="acknowledge-alert" style="margin-left: 15px; padding: 8px 12px; background: white; color: #ef4444; border: none; border-radius: 4px; cursor: pointer;">
           Acknowledge
@@ -872,8 +874,6 @@
     
     // Improved function to play regular alert sound
     function playAlertSound() {
-      if (!soundEnabled) return;
-      
       alertSound.pause();
       alertSound.currentTime = 0;
       
@@ -881,6 +881,70 @@
         console.error("Alert sound autoplay failed:", error);
         // For regular alerts, just log the error but don't bother the user
       });
+    }
+
+    // Force play alarm function - call this when temperature exceeds 34°C
+    function forcePlayAlarm() {
+      console.log("FORCE PLAYING ALARM - HIGH TEMPERATURE DETECTED");
+      
+      // Reset alarm
+      emergencyAlarm.pause();
+      emergencyAlarm.currentTime = 0;
+      emergencyAlarm.volume = 1.0;
+      emergencyAlarm.loop = true;
+      
+      // Try all possible methods to play the alarm
+      const playPromise = emergencyAlarm.play();
+      
+      if (playPromise !== undefined) {
+        playPromise.then(() => {
+          console.log("Alarm successfully playing!");
+          // Create visible notification
+          createEmergencyNotification();
+        }).catch(error => {
+          console.error("Force play failed:", error);
+          createEmergencyNotification();
+          
+          // Try with user interaction
+          const clickHandler = function() {
+            console.log("User clicked - trying to play alarm");
+            emergencyAlarm.play().catch(e => console.error("Still can't play alarm with click:", e));
+            document.removeEventListener('click', clickHandler);
+          };
+          
+          document.addEventListener('click', clickHandler);
+          
+          // Add a visible play button
+          const playButton = document.createElement('button');
+          playButton.textContent = "🔊 CLICK TO PLAY ALARM - HIGH TEMPERATURE DETECTED!";
+          playButton.style.cssText = `
+            position: fixed;
+            top: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #ef4444;
+            color: white;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-weight: bold;
+            z-index: 10000;
+            border: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            cursor: pointer;
+            animation: pulse 1s infinite;
+            font-size: 16px;
+          `;
+          
+          playButton.addEventListener('click', function() {
+            emergencyAlarm.play().catch(e => console.error("Play button click failed:", e));
+            if (this.parentNode) {
+              this.parentNode.removeChild(this);
+            }
+          });
+          
+          document.body.appendChild(playButton);
+        });
+      }
     }
 
     // Listen for new alerts
@@ -893,25 +957,66 @@
         filterAlerts();
       }
       
-      // Play appropriate sound based on alert type
-      if (soundEnabled) {
-        if (alert.type === 'temperature' && alert.value > 34.5 && emergencyAlarmEnabled) {
-          // Play emergency alarm for high temperature
-          playEmergencyAlarm();
-          
-          // Create a notification if browser supports it
-          if ('Notification' in window && Notification.permission === 'granted') {
-            new Notification('EMERGENCY: High Temperature Alert', {
-              body: `Temperature has reached ${alert.value.toFixed(1)}°C, exceeding threshold of 34.5°C`,
-              icon: '/favicon.ico'
-            });
-          } else if ('Notification' in window && Notification.permission !== 'denied') {
-            Notification.requestPermission();
-          }
-        } else {
-          // Play regular alert sound
-          playAlertSound();
+      // IMMEDIATE ALARM FOR HIGH TEMPERATURE - NO SETTINGS CHECK
+      if (alert.type === 'temperature' && alert.value > 36) {
+        console.log("HIGH TEMPERATURE DETECTED: " + alert.value + "°C - PLAYING ALARM");
+        
+        // Force play alarm regardless of settings
+        forcePlayAlarm();
+        
+        // Display hardware buzzer status message
+        const hardwareBuzzerMsg = document.createElement('div');
+        hardwareBuzzerMsg.className = 'hardware-buzzer-status';
+        hardwareBuzzerMsg.style.cssText = `
+          position: fixed;
+          bottom: 20px;
+          left: 50%;
+          transform: translateX(-50%);
+          background-color: #3b82f6;
+          color: white;
+          padding: 10px 20px;
+          border-radius: 8px;
+          font-weight: bold;
+          z-index: 9999;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        `;
+        
+        hardwareBuzzerMsg.innerHTML = `
+          <i class="fas fa-bell"></i>
+          <span>Hardware Buzzer Activated</span>
+        `;
+        
+        // Remove any existing hardware buzzer message
+        const existingMsg = document.querySelector('.hardware-buzzer-status');
+        if (existingMsg) {
+          existingMsg.parentNode.removeChild(existingMsg);
         }
+        
+        // Add to document
+        document.body.appendChild(hardwareBuzzerMsg);
+        
+        // Auto-remove after 10 seconds
+        setTimeout(() => {
+          if (hardwareBuzzerMsg.parentNode) {
+            hardwareBuzzerMsg.parentNode.removeChild(hardwareBuzzerMsg);
+          }
+        }, 10000);
+        
+        // Create a notification if browser supports it
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification('EMERGENCY: High Temperature Alert', {
+            body: `Temperature has reached ${alert.value.toFixed(1)}°C, exceeding threshold of 36°C. Hardware buzzer activated.`,
+            icon: '/favicon.ico'
+          });
+        } else if ('Notification' in window && Notification.permission !== 'denied') {
+          Notification.requestPermission();
+        }
+      } else if (soundEnabled) {
+        // Play regular alert sound
+        playAlertSound();
       }
     });
     
@@ -924,7 +1029,7 @@
         filterAlerts();
         
         // Stop emergency alarm if this was a temperature alert
-        if (allAlerts[alertIndex].type === 'temperature' && allAlerts[alertIndex].value > 34.5) {
+        if (allAlerts[alertIndex].type === 'temperature' && allAlerts[alertIndex].value > 36) {
           emergencyAlarm.pause();
           emergencyAlarm.currentTime = 0;
         }
@@ -958,9 +1063,17 @@
         this.innerHTML = '<i class="fas fa-bell"></i><span>Emergency Alarm: On</span>';
       } else {
         this.innerHTML = '<i class="fas fa-bell-slash"></i><span>Emergency Alarm: Off</span>';
-        // Stop any playing emergency alarm
-        emergencyAlarm.pause();
-        emergencyAlarm.currentTime = 0;
+        // Stop any playing emergency alarm EXCEPT for high temperature alarms
+        const highTempAlert = allAlerts.find(alert => 
+          alert.type === 'temperature' && 
+          alert.value > 36 && 
+          !alert.resolved
+        );
+        
+        if (!highTempAlert) {
+          emergencyAlarm.pause();
+          emergencyAlarm.currentTime = 0;
+        }
       }
     });
   </script>
